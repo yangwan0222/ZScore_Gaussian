@@ -1,0 +1,140 @@
+# Check necessary packages 
+if(! "sesame" %in% tolower((.packages()))){
+  library("sesame")
+  (.packages())
+}
+if(! "matrixStats" %in% tolower((.packages()))){
+  library("matrixStats")
+  (.packages())
+}
+if(! "dplyr" %in% tolower((.packages()))){
+  library("dplyr")
+  (.packages())
+}
+
+# Add idat files path, hm450 manifest path
+# p <- '/home/wany/scr1_wany/Normal749'
+# sset_train <- lapply(searchIDATprefixes(p),readIDATpair)
+# ssets_normal <- readRDS("/home/wany/scr1_wany/Normal749/ssets_normal.rds")
+
+# p <- "/home/wany/scr1_wany/IDAT_file/GSE108576"
+# ssets_target <- lapply(searchIDATprefixes(p),readIDATpair)
+# saveRDS(ssets_target, file = "/home/wany/scr1_wany/IDAT_file/GSE108576/cancer.rds")
+ssets_target <- readRDS("/home/wany/scr1_wany/IDAT_file/GSE108576/cancer.rds")
+
+######### pOOBAH ###########
+
+p <- data.frame(pval(ssets_target[[1]])) # Sample: female
+poobah <- p[order(row.names(p)),]
+id_chrm <- readRDS("/home/wany/scr1_wany/temp/id_chrm.rds")
+p <- cbind(id_chrm,poobah)
+
+#prior_s <- 0.99
+#prior_f <- 0.01
+sn <- 1
+
+########## Gaussian ################
+normal_green1 <- readRDS("/home/wany/scr1_wany/Normal749/normal_green1.rds")
+normal_red1 <- readRDS("/home/wany/scr1_wany/Normal749/normal_red1.rds")
+normal_green2 <- readRDS("/home/wany/scr1_wany/Normal749/normal_green2.rds")
+normal_red2 <- readRDS("/home/wany/scr1_wany/Normal749/normal_red2.rds")
+
+# Green 1 #
+I_green <- data.frame(rowSums(IG(ssets_target[[sn]]))) # intens of all samples
+colnames(I_green) <- 'intens'
+zgreen1 <- (I_green - mean(I_green$intens))/(sd(I_green$intens)) # z_score of all samples
+I_green <- cbind(I_green,zgreen1)
+colnames(I_green) <- c('intens','zscore')
+pxs <- pnorm(I_green$zscore,normal_green1[,1], normal_green1[,2])
+I_green <- cbind(I_green,pxs)
+# Red 1 #
+I_red <- data.frame(rowSums(IR(ssets_target[[sn]]))) # intens of all samples
+colnames(I_red) <- 'intens'
+zred1 <- (I_red - mean(I_red$intens))/(sd(I_red$intens)) # z_score of all samples
+I_red <- cbind(I_red,zred1)
+colnames(I_red) <- c('intens','zscore')
+pxs <- pnorm(I_red$zscore,normal_red1[,1], normal_red1[,2])
+I_red <- cbind(I_red,pxs)
+# Green 2 #
+II_green <- data.frame(II(ssets_target[[sn]])[,1])
+colnames(II_green) <- 'intens'
+zgreen2 <- (II_green - mean(II_green$intens))/(sd(II_green$intens)) # z_score of all samples
+II_green <- cbind(II_green,zgreen2)
+colnames(II_green) <- c('intens','zscore')
+pxs <- pnorm(II_green$zscore,normal_green2[,1], normal_green2[,2])
+II_green <- cbind(II_green,pxs)
+# Red 2 #
+II_red <- data.frame(II(ssets_target[[sn]])[,2])
+colnames(II_red) <- 'intens'
+zred2 <- (II_red - mean(II_red$intens))/(sd(II_red$intens)) # z_score of all samples
+II_red <- cbind(II_red,zred2)
+colnames(II_red) <- c('intens','zscore')
+pxs <- pnorm(II_red$zscore,normal_red2[,1], normal_red2[,2])
+II_red <- cbind(II_red,pxs)
+# Type II #
+type2 <- cbind(II_green$pxs,II_red$pxs)
+type2 <- pmin(II_green,II_red)
+pxs <- rbind(I_green,I_red,type2)
+pxs <- pxs[order(row.names(pxs)),]
+##
+
+sample <- cbind(pxs,p)[,c(3,5,6)]
+prior_s <- 0.75
+
+sample$p <- 1 - sample$pxs*prior_s/(sample$pxs*prior_s + sample$poobah*(1 - prior_s))
+sample_noty <- subset(sample, chrm != 'chrY')
+
+
+#### Gau ####
+male_green1 <- readRDS("/home/wany/scr1_wany/Normal749/male_green1.rds")
+male_red1 <- readRDS("/home/wany/scr1_wany/Normal749/male_red1.rds")
+male_green2 <- readRDS("/home/wany/scr1_wany/Normal749/male_green2.rds")
+male_red2 <- readRDS("/home/wany/scr1_wany/Normal749/male_red2.rds")
+
+# Green 1 #
+I_green <- data.frame(rowSums(IG(ssets_target[[sn]]))) # intens of all samples
+colnames(I_green) <- 'intens'
+zgreen1 <- (I_green - mean(I_green$intens))/(sd(I_green$intens)) # z_score of all samples
+I_green <- cbind(I_green,zgreen1)
+colnames(I_green) <- c('intens','zscore')
+pxs <- pnorm(I_green$zscore,male_green1[,1], male_green1[,2])
+I_green <- cbind(I_green,pxs)
+
+# Red 1 #
+I_red <- data.frame(rowSums(IR(ssets_target[[sn]]))) # intens of all samples
+colnames(I_red) <- 'intens'
+zred1 <- (I_red - mean(I_red$intens))/(sd(I_red$intens)) # z_score of all samples
+I_red <- cbind(I_red,zred1)
+colnames(I_red) <- c('intens','zscore')
+pxs <- pnorm(I_red$zscore,male_red1[,1], male_red1[,2])
+I_red <- cbind(I_red,pxs)
+
+# Green 2 #
+II_green <- data.frame(II(ssets_target[[sn]])[,1])
+colnames(II_green) <- 'intens'
+zgreen2 <- (II_green - mean(II_green$intens))/(sd(II_green$intens)) # z_score of all samples
+II_green <- cbind(II_green,zgreen2)
+colnames(II_green) <- c('intens','zscore')
+pxs <- pnorm(II_green$zscore,male_green2[,1], male_green2[,2])
+II_green <- cbind(II_green,pxs)
+
+# Red 2 #
+II_red <- data.frame(II(ssets_target[[sn]])[,2])
+colnames(II_red) <- 'intens'
+zred2 <- (II_red - mean(II_red$intens))/(sd(II_red$intens)) # z_score of all samples
+II_red <- cbind(II_red,zred2)
+colnames(II_red) <- c('intens','zscore')
+pxs <- pnorm(II_red$zscore,male_red2[,1], male_red2[,2])
+II_red <- cbind(II_red,pxs)
+
+type2 <- cbind(II_green$pxs,II_red$pxs)
+type2 <- pmin(II_green,II_red)
+pxs <- rbind(I_green,I_red,type2)
+pxs <- pxs[order(row.names(pxs)),]
+
+sample <- cbind(pxs,p)[,c(3,5,6)]
+sample_y <- subset(sample,chrm == 'chrY')
+prior_s <- 0.75
+sample_y$p <- 1 - sample_y$pxs*prior_s/(sample_y$pxs*prior_s + sample_y$poobah*(1 - prior_s))
+
+b2 <- rbind(subset(sample,chrm != 'chrX'),subset(sample_y,chrm == 'chrX'))
